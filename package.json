@@ -1,0 +1,13 @@
+{
+  "name": "llm-developer-project-425",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Yandex Cloud Functions: email-poller",
+  "main": "src/email_poller.js",
+  "scripts": {
+    "poll": "node src/email_poller.js"
+  },
+  "dependencies": {
+    "imapflow": "1.7.7"
+  }
+}
