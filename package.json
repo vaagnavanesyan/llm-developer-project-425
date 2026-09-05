@@ -8,6 +8,10 @@
     "poll": "node src/email_poller.js"
   },
   "dependencies": {
-    "imapflow": "1.7.7"
+    "html-to-text": "10.0.1",
+    "imapflow": "1.7.7",
+    "mailparser": "3.9.20",
+    "nodemailer": "9.1.1",
+    "openai": "7.10.0"
   }
 }

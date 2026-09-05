@@ -9,7 +9,7 @@ PKG_DIR="$BUILD_DIR/package"
 ARCHIVE="$BUILD_DIR/email-poller.zip"
 
 mkdir -p "$PKG_DIR"
-cp src/email_poller.js package.json package-lock.json "$PKG_DIR/"
+cp src/*.js package.json package-lock.json "$PKG_DIR/"
 (cd "$PKG_DIR" && zip -qr "$ARCHIVE" .)
 
 yc serverless function version create \
@@ -20,6 +20,7 @@ yc serverless function version create \
   --execution-timeout 120s \
   --source-path "$ARCHIVE" \
   --service-account-id ajesu29pdo3ql3ug9die \
-  --environment YC_FOLDER_ID=b1gg3l0ck2ak3oehfprk,IMAP_HOST=imap.mail.ru,IMAP_USER=vahagn_1993@mail.ru,SMTP_HOST=smtp.mail.ru,SMTP_PORT=465,SMTP_USER=vahagn_1993@mail.ru,HELPDESK_MAILBOX=vahagn_1993@mail.ru \
+  --environment YC_FOLDER_ID=b1gg3l0ck2ak3oehfprk,IMAP_HOST=imap.mail.ru,IMAP_USER=vahagn_1993@mail.ru,SMTP_HOST=smtp.mail.ru,SMTP_PORT=465,SMTP_USER=vahagn_1993@mail.ru,HELPDESK_MAILBOX=vahagn_1993@mail.ru,AI_AGENT_ID=fvtb80shi7ts7labqkj8,DRY_RUN=false,MAX_MESSAGES=5 \
   --secret environment-variable=IMAP_PASSWORD,name=email-credentials,key=password \
-  --secret environment-variable=SMTP_PASSWORD,name=email-credentials,key=password
+  --secret environment-variable=SMTP_PASSWORD,name=email-credentials,key=password \
+  --secret environment-variable=AI_API_KEY,name=ai-studio-api-key,key=value
