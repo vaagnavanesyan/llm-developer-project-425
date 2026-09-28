@@ -5,6 +5,8 @@ const { convert } = require("html-to-text");
 
 const { createClient, openFolder, fetchUnseenUids, fetchSizes, fetchMessage, markSeen } = require("./imap");
 const { askAgent } = require("./ai");
+const { userMessageId, loadHistory, saveUserMessage, saveAgentMessage, linkTicket } = require("./db");
+const { maskPii } = require("./pii");
 const { createTransport, sendReply } = require("./mailer");
 
 const REQUIRED_ENV = [
@@ -15,12 +17,17 @@ const REQUIRED_ENV = [
   "SMTP_USER",
   "SMTP_PASSWORD",
   "AI_API_KEY",
-  "AI_AGENT_ID",
+  "AI_MODEL",
+  "YC_FOLDER_ID",
+  "MCP_TICKETS_URL",
+  "YDB_ENDPOINT",
+  "YDB_DATABASE",
 ];
 const DEFAULT_FOLDER = "llm-developer@mail.ru"; // Отдельная папка, чтобы не читать всю личную почту
 const DEFAULT_MAX_MESSAGES = 5;
 const DEFAULT_MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_BODY_CHARS = 8000;
+const DEFAULT_HISTORY_LIMIT = 10;
 // Запас до таймаута функции: хватит на текущее письмо, logout и сводку
 const RESERVE_MS = 25000;
 const LOCAL_BUDGET_MS = 110000;
@@ -103,6 +110,33 @@ const skipMessage = async ({ client, uid, reason, stats, dryRun }) => {
   if (!dryRun) await markSeen(client, uid);
 };
 
+// Один цикл диалога: история из YDB → запись входящего → LLM → запись ответа.
+// История пишется напрямую в YDB, а не через MCP: это обязанность poller'а, а не агента.
+const converse = async (uid, letter) => {
+  const userId = (letter.replyTo || letter.from).toLowerCase();
+  const masked = { ...letter, from: userId, subject: maskPii(letter.subject), text: maskPii(letter.text) };
+  const userRowId = userMessageId(letter.messageId);
+
+  // При повторной обработке того же письма его реплика уже лежит в истории — отбрасываем
+  const history = (await loadHistory(userId, envNumber("HISTORY_LIMIT", DEFAULT_HISTORY_LIMIT))).filter(
+    (item) => item.id !== userRowId,
+  );
+  await saveUserMessage({ id: userRowId, userId, text: masked.text });
+
+  const reply = await askAgent(masked, history);
+  console.log(
+    `UID ${uid}: ответ агента — model=${reply.model}, tokens_in=${reply.tokensIn}, tokens_out=${reply.tokensOut}, latency_ms=${reply.latencyMs}, история ${history.length} реплик`,
+  );
+
+  const agentRowId = await saveAgentMessage({ userId, text: reply.answer, ...reply });
+  if (reply.ticketId) {
+    await linkTicket({ userId, messageIds: [userRowId, agentRowId], ticketId: reply.ticketId });
+    console.log(`UID ${uid}: создан тикет ${reply.ticketId}, реплики цикла привязаны к нему`);
+  }
+
+  return reply.answer;
+};
+
 const processMessage = async ({ client, transport, uid, size, stats, dryRun }) => {
   const maxBytes = envNumber("MAX_MESSAGE_BYTES", DEFAULT_MAX_MESSAGE_BYTES);
   if (size > maxBytes) {
@@ -123,7 +157,7 @@ const processMessage = async ({ client, transport, uid, size, stats, dryRun }) =
   }
 
   console.log(`UID ${uid}: письмо от ${letter.from}, тема "${letter.subject}"`);
-  const answer = await askAgent(letter);
+  const answer = await converse(uid, letter);
   stats.answered += 1;
 
   if (dryRun) {
@@ -217,6 +251,8 @@ module.exports.handle = async (event, context) => {
     };
   }
 };
+
+module.exports.converse = converse;
 
 if (require.main === module) {
   module.exports.handle().then((response) => console.log(response.body));

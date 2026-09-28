@@ -1,0 +1,11 @@
+{
+  "name": "ydb-tickets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Yandex Cloud Function: MCP-инструменты create-ticket / list-my-tickets поверх YDB",
+  "main": "index.js",
+  "dependencies": {
+    "@yandex-cloud/nodejs-sdk": "2.9.3",
+    "ydb-sdk": "5.11.1"
+  }
+}

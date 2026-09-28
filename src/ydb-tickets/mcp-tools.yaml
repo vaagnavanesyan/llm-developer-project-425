@@ -1,0 +1,23 @@
+# Инструменты MCP Hub. Оба вызывают одну Cloud Function ydb-tickets:
+# MCP Hub передаёт аргументы как есть, и функция различает инструменты
+# по набору ключей. <CF_ID> подставляет ./deploy.sh mcp-gateway.
+- name: create-ticket
+  description: >-
+    Создаёт тикет в хелпдеске и возвращает {"ticket_id", "created_at"}.
+    user_id — email пользователя, category — одна из bug, docs, feature, access,
+    text — суть обращения без персональных данных.
+  input_json_schema: '{"type":"object","properties":{"user_id":{"type":"string","description":"Email пользователя"},"category":{"type":"string","enum":["bug","docs","feature","access"],"description":"bug — ошибка в продукте, docs — вопрос по документации, feature — запрос новой функциональности, access — доступы"},"text":{"type":"string","description":"Суть обращения"}},"required":["user_id","category","text"]}'
+  action:
+    function_call:
+      function_id: <CF_ID>
+      tag: $latest
+
+- name: list-my-tickets
+  description: >-
+    Возвращает тикеты пользователя (последние 50, новые первыми):
+    [{"id", "status", "category", "text", "created_at"}].
+  input_json_schema: '{"type":"object","properties":{"user_id":{"type":"string","description":"Email пользователя"}},"required":["user_id"]}'
+  action:
+    function_call:
+      function_id: <CF_ID>
+      tag: $latest

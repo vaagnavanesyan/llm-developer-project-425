@@ -2,16 +2,18 @@
   "name": "llm-developer-project-425",
   "version": "1.0.0",
   "private": true,
-  "description": "Yandex Cloud Functions: email-poller",
+  "description": "Yandex Cloud Functions: email-poller (история переписки в YDB, тикеты через MCP)",
   "main": "src/email_poller.js",
   "scripts": {
     "poll": "node src/email_poller.js"
   },
   "dependencies": {
+    "@yandex-cloud/nodejs-sdk": "2.9.3",
     "html-to-text": "10.0.1",
     "imapflow": "1.7.7",
     "mailparser": "3.9.20",
     "nodemailer": "9.1.1",
-    "openai": "7.10.0"
+    "openai": "7.10.0",
+    "ydb-sdk": "5.11.1"
   }
 }
