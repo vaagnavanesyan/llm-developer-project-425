@@ -112,13 +112,8 @@ deploy_mcp_gateway() {
   fi
 }
 
-# Путь к базе (/ru-central1/<cloud-id>/<db-id>) берётся из окружения:
-# YDB_DATABASE=... ./deploy.sh workflow
 deploy_workflow() {
-  local spec_file
-  : "${YDB_DATABASE:?задайте YDB_DATABASE — путь к базе YDB}"
-  spec_file="$BUILD_DIR/workflow.yaml"
-  sed "s|<YDB_DATABASE>|$YDB_DATABASE|g" src/workflow.yaml > "$spec_file"
+  local spec_file=src/workflow.yaml
 
   if yc serverless workflow get --name "$WORKFLOW_NAME" --folder-id "$FOLDER_ID" >/dev/null 2>&1; then
     # Расписание передаём при каждом обновлении, чтобы деплой его не сбрасывал

@@ -32,7 +32,7 @@ select_overdue (databaseQuery) → check_overdue (switch) ─ пусто → not
 
 ```bash
 ./deploy.sh email-sender
-YDB_DATABASE="$(yc lockbox payload get --name ydb-database --format json | jq -r '.entries[0].text_value')" ./deploy.sh workflow
+./deploy.sh workflow
 ```
 
 Ручной запуск: `yc serverless workflow execution start daily-escalation`, результат — `yc serverless workflow execution get <id>`.

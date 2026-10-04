@@ -1,7 +1,6 @@
 # daily-escalation: открытые тикеты старше 24 часов → дайджест оператору.
 # Запуск по расписанию (cron в deploy.sh). Состояние накапливается: каждый шаг
 # через output дописывает свой ключ (overdue, digest, escalated, sent).
-# Путь к базе в connection.database подставляет ./deploy.sh workflow.
 yawl: "0.1"
 start: select_overdue
 steps:
@@ -11,7 +10,7 @@ steps:
         type: YDB
         host: ydb.serverless.yandexcloud.net
         port: 2135
-        database: <YDB_DATABASE>
+        database: /ru-central1/b1gu3rpc0907vvbk0kv8/etnanr7v4750crqkqprt
         ssl: true
         iam: true
       query: >-
@@ -75,7 +74,7 @@ steps:
         type: YDB
         host: ydb.serverless.yandexcloud.net
         port: 2135
-        database: <YDB_DATABASE>
+        database: /ru-central1/b1gu3rpc0907vvbk0kv8/etnanr7v4750crqkqprt
         ssl: true
         iam: true
       query: >-
