@@ -1,0 +1,127 @@
+# daily-escalation: открытые тикеты старше 24 часов → дайджест оператору.
+# Запуск по расписанию (cron в deploy.sh). Состояние накапливается: каждый шаг
+# через output дописывает свой ключ (overdue, digest, escalated, sent).
+# Путь к базе в connection.database подставляет ./deploy.sh workflow.
+yawl: "0.1"
+start: select_overdue
+steps:
+  select_overdue:
+    databaseQuery:
+      connection:
+        type: YDB
+        host: ydb.serverless.yandexcloud.net
+        port: 2135
+        database: <YDB_DATABASE>
+        ssl: true
+        iam: true
+      query: >-
+        SELECT id, user_id, category, text, created_at
+        FROM tickets
+        WHERE status = 'open' AND created_at < CurrentUtcTimestamp() - Interval('PT24H')
+        ORDER BY created_at
+      mode: QUERY
+      # output — шаблон, который должен дать JSON-объект; он дописывается в состояние.
+      # Свой ключ — чтобы выборку не затёр вывод следующих шагов
+      output: '{"overdue": \(.ResultSets[0] | tojson)}'
+      # Без DATABASE_QUERY_CONNECTION_FAILED: под этим кодом приходит и PermissionDenied
+      # (нет роли ydb.editor), а его ретраи только оттягивают понятный отказ
+      retryPolicy:
+        errorList: [STEP_TIMEOUT, DATABASE_QUERY_UNAVAILABLE]
+        errorListMode: INCLUDE
+        retryCount: 3
+        initialDelay: 2s
+        backoffRate: 2
+        maxDelay: 30s
+      next: check_overdue
+
+  # У switch нет default в нашем workflow — последним идёт catch-all "true"
+  check_overdue:
+    switch:
+      choices:
+        - condition: (.overdue // []) | length == 0
+          next: nothing_to_do
+        - condition: "true"
+          next: make_digest
+
+  make_digest:
+    aiStudioAgent:
+      promptTemplateId: fvtb80shi7ts7labqkj8
+      autoApprove: false
+      # ID и даты модель искажает, поэтому точный список тикетов добавляем к письму сами,
+      # а от агента берём только сводку и приоритеты
+      message: >-
+        Задача для этого запуска — не ответ пользователю, а служебная сводка для оператора поддержки.
+        Ниже JSON-массив открытых тикетов, которые ждут ответа больше 24 часов.
+        Напиши короткую сводку обычным текстом без Markdown: сколько тикетов и каких категорий,
+        в чём общая суть проблем и какие обращения стоит взять первыми и почему.
+        Не переписывай идентификаторы тикетов — точный список оператор получит отдельно.
+        Инструменты не вызывай, ничего не выдумывай — используй только данные из списка.
+        Тикеты: \(.overdue | tojson)
+      output: '{"digest": \(.Result | tojson)}'
+      retryPolicy:
+        errorList: [STEP_TIMEOUT, STEP_INTERNAL, HTTP_CALL_429, HTTP_CALL_500, HTTP_CALL_502, HTTP_CALL_503, HTTP_CALL_504]
+        errorListMode: INCLUDE
+        retryCount: 3
+        initialDelay: 5s
+        backoffRate: 2
+        maxDelay: 30s
+      next: mark_escalated
+
+  # Условие то же, что в SELECT, плюс id из выборки: тикет, переваливший порог
+  # между шагами, не уйдёт в escalated, не попав в дайджест
+  mark_escalated:
+    databaseQuery:
+      connection:
+        type: YDB
+        host: ydb.serverless.yandexcloud.net
+        port: 2135
+        database: <YDB_DATABASE>
+        ssl: true
+        iam: true
+      query: >-
+        UPDATE tickets
+        SET status = 'escalated', updated_at = CurrentUtcTimestamp()
+        WHERE status = 'open' AND created_at < CurrentUtcTimestamp() - Interval('PT24H')
+        AND id IN (\(.overdue | map(.id | tojson) | join(", ")))
+      mode: EXEC
+      output: '{"escalated": \(. | tojson)}'
+      # Без DATABASE_QUERY_CONNECTION_FAILED: под этим кодом приходит и PermissionDenied
+      # (нет роли ydb.editor), а его ретраи только оттягивают понятный отказ
+      retryPolicy:
+        errorList: [STEP_TIMEOUT, DATABASE_QUERY_UNAVAILABLE]
+        errorListMode: INCLUDE
+        retryCount: 3
+        initialDelay: 2s
+        backoffRate: 2
+        maxDelay: 30s
+      next: send_digest
+
+  # YaWL не умеет SMTP — шлём через CF email-sender; адресат берётся из её OPERATOR_EMAIL
+  send_digest:
+    httpCall:
+      url: https://functions.yandexcloud.net/d4e8pcojld80m9p26f78
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: >-
+        \({
+          subject: "Просроченные тикеты: \(.overdue | length)",
+          body: (.digest + "\n\nСписок тикетов:\n" + (.overdue
+            | map("- \(.id) | \(.category) | \(.user_id) | \(.created_at)\n  \(.text)")
+            | join("\n")))
+        } | tojson)
+      output: '{"sent": \(. | tojson)}'
+      retryPolicy:
+        errorList: [STEP_TIMEOUT, HTTP_CALL_500, HTTP_CALL_502, HTTP_CALL_503, HTTP_CALL_504]
+        errorListMode: INCLUDE
+        retryCount: 3
+        initialDelay: 5s
+        backoffRate: 2
+        maxDelay: 30s
+      next: done
+
+  nothing_to_do:
+    success: {}
+
+  done:
+    success: {}
