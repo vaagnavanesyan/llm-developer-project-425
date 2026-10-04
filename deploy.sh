@@ -6,6 +6,7 @@ TARGET="${1:-email-poller}"
 
 FOLDER_ID=b1gg3l0ck2ak3oehfprk
 SA_ID=ajesu29pdo3ql3ug9die # ai-studio-sa
+SEARCH_INDEX_ID=fvtnq44mf4vh4l70v491 # база знаний агента (поисковый индекс AI Studio)
 OPERATOR_EMAIL="${OPERATOR_EMAIL:-vahagn_1993@mail.ru}"
 MCP_GATEWAY_NAME=ydb-tickets-mcp
 WORKFLOW_NAME=daily-escalation
@@ -46,7 +47,7 @@ deploy_email_poller() {
     --execution-timeout 120s \
     --source-path "$ARCHIVE" \
     --service-account-id "$SA_ID" \
-    --environment YC_FOLDER_ID=$FOLDER_ID,IMAP_HOST=imap.mail.ru,IMAP_USER=vahagn_1993@mail.ru,SMTP_HOST=smtp.mail.ru,SMTP_PORT=465,SMTP_USER=vahagn_1993@mail.ru,HELPDESK_MAILBOX=vahagn_1993@mail.ru,AI_MODEL=deepseek-v4.1-flash/latest,DRY_RUN=false,MAX_MESSAGES=5,MCP_TICKETS_URL="$mcp_url" \
+    --environment YC_FOLDER_ID=$FOLDER_ID,IMAP_HOST=imap.mail.ru,IMAP_USER=vahagn_1993@mail.ru,SMTP_HOST=smtp.mail.ru,SMTP_PORT=465,SMTP_USER=vahagn_1993@mail.ru,HELPDESK_MAILBOX=vahagn_1993@mail.ru,AI_MODEL=deepseek-v4.1-flash/latest,DRY_RUN=false,MAX_MESSAGES=5,SEARCH_INDEX_ID=$SEARCH_INDEX_ID,MCP_TICKETS_URL="$mcp_url" \
     --secret environment-variable=IMAP_PASSWORD,name=email-credentials,key=password \
     --secret environment-variable=SMTP_PASSWORD,name=email-credentials,key=password \
     --secret environment-variable=AI_API_KEY,name=ai-studio-api-key,key=value \

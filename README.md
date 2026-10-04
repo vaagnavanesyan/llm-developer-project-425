@@ -17,6 +17,10 @@
 - `ai-studio-api-key` (значение ключа)
 - `ai-studio-api-key-id` (идентификатор ключа)
 
+## База знаний агента
+
+К агенту `email-poller` подключён поисковый индекс AI Studio `fvtnq44mf4vh4l70v491` (справка Хекслета). В OpenAI-совместимом Responses API индекс — это vector store, поэтому он передаётся инструментом `{ type: "file_search", vector_store_ids: [...] }` рядом с MCP-сервером тикетов. ID задаётся переменной `SEARCH_INDEX_ID` в `deploy.sh`; без неё агент работает без базы знаний. Вызовы поиска пишутся в лог как `file_search_call`.
+
 ## Ежедневная эскалация тикетов (workflow daily-escalation)
 
 `src/workflow.yaml` (YaWL 0.1) раз в день в 9:00 по Москве находит открытые тикеты старше 24 часов, просит агента AI Studio составить сводку, переводит тикеты в `escalated` и отправляет дайджест оператору через функцию `email-sender`:
